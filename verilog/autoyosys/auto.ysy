@@ -1,0 +1,5 @@
+read_verilog ./autoyosys/source.v    # Reads verilog source file and loads into Yosys
+hierarchy -check		     # Ensures there are no undefined modules or circular dependencies
+proc; opt; fsm; opt; memory; opt     # Transforms and optimize internal yosys design
+techmap; opt			     # Maps high-level logic into low-level primitives
+json -o ./autoyosys/source.json      # Writes final synthesized design into JSON file

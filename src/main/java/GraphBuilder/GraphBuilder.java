@@ -17,8 +17,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 
-//main class
-//json file->javaObject->Vertex->graph
 public class GraphBuilder {
 	private static ArrayList<String> ports_names=new ArrayList<String>();
 	private static ArrayList<String> cells_names=new ArrayList<String>();
