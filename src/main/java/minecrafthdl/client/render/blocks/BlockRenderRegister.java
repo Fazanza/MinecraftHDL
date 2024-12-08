@@ -2,10 +2,10 @@ package minecrafthdl.client.render.blocks;
 
 import minecrafthdl.MinecraftHDL;
 import minecrafthdl.block.ModBlocks;
-import net.minecraft.block.Block;
+import net.minecraft.world.level.block.Block;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.block.model.ModelResourceLocation;
-import net.minecraft.item.Item;
+import net.minecraft.client.resources.model.ModelResourceLocation;
+import net.minecraft.world.item.Item;
 
 /**
  * Created by Francis on 10/28/2016.

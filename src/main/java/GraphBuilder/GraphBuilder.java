@@ -17,7 +17,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 
+//main class
+//json file->javaObject->Vertex->graph
 public class GraphBuilder {
+	// Lists of stuff for graph construction
 	private static ArrayList<String> ports_names=new ArrayList<String>();
 	private static ArrayList<String> cells_names=new ArrayList<String>();
 	private static ArrayList<Port> ports=new ArrayList<Port>();
@@ -31,9 +34,16 @@ public class GraphBuilder {
 
 	static int high_low_nets = Integer.MAX_VALUE;
 	static int cell_ids = 0;
+
+	// maps net IDs to verticies
+	// TODO: double declaration? (in class??)
 	static HashMap<Integer, Vertex> from_net = new HashMap<Integer, Vertex>();
 	static HashMap<Integer, ArrayList<Vertex>> to_net = new HashMap<Integer, ArrayList<Vertex>>();
-
+	
+	/**
+	 * Links vertex to given net (to_net map)
+	 * Handles special cases for HIGH or LOW nets by creating corresponding Function nodes
+	 */
 	public static int putInToNet(int i, Vertex v, Graph g){
 		ArrayList<Vertex> l = to_net.get(i);
 
@@ -58,7 +68,6 @@ public class GraphBuilder {
 			to_net.get(i).add(v);
 			return i;
 		}
-
 	}
 
 	public static int putInFromNet(int i, Vertex v){
@@ -108,17 +117,13 @@ public class GraphBuilder {
 				for (int i : p.bits){
 					putInFromNet(i, io);
 				}
-
 			} else {
-
 				io = new In_output(p.bits.size(), VertexType.OUTPUT, p_name);
 
 				for (int i : p.bits){
 					putInToNet(i, io, g);
 				}
-
 			}
-
 			g.addVertex(io);
 		}
 
@@ -163,7 +168,6 @@ public class GraphBuilder {
 					}
 				}
 			}
-
 			g.addVertex(f);
 		}
 
@@ -188,7 +192,6 @@ public class GraphBuilder {
 						}
 					}
 				}
-
 				g.addEdge(from, v);
 			}
 		}
@@ -196,427 +199,14 @@ public class GraphBuilder {
 		return g;
 	}
 
-
-	public static Graph buildxGraph(String path){
-
-		ArrayList<String> ports_names=new ArrayList<String>();
-		ArrayList<String> cells_names=new ArrayList<String>();
-		ArrayList<Port> ports=new ArrayList<Port>();
-		ArrayList<Cell> cells=new ArrayList<Cell>();
-
-		ArrayList<In_output> inputs=new ArrayList<In_output>();
-		ArrayList<In_output> outputs=new ArrayList<In_output>();
-		ArrayList<Function> gates=new ArrayList<Function>();
-
-		test_i = 1;
-		System.out.println(test_i++); //1
-
-
-		//create jsononjects
-		Gson gson= new com.google.gson.Gson();
-		JsonFile jf = null;
-		try {
-			FileReader fr = new FileReader(path);
-			JsonReader jreader = new JsonReader(fr);
-			jreader.setLenient(true);
-			jf = gson.fromJson(jreader, JsonFile.class);
-			fr.close();
-			jreader.close();
-		} catch (FileNotFoundException e) {
-			e.printStackTrace();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
-		System.out.println(test_i++); //2
-
-
-		jf.postInit();
-
-		Module m = jf.modules.values().iterator().next();
-
-		if (m == null) return null;
-
-		//read all ports names and create port objects
-
-		for(String s: m.ports.keySet()){
-			JPort p = m.ports.get(s);
-			Port port=new Port(s, p.direction, p.bits);
-			ports.add(port);
-
-
-		}
-
-		System.out.println(test_i++); //3
-
-
-		int j=1;	//count to assign ids to gates
-
-		for(String s: m.cells.keySet()){
-
-			JCell c = m.cells.get(s);
-
-			ArrayList<Connection> conn_list = new ArrayList<Connection>();
-
-			for(JPort p : c.ports.values()){
-
-				conn_list.add(new Connection(p.direction, p.bits, p.name));
-
-
-
-			}
-
-
-
-			Cell cell=new Cell(j, c.type, conn_list );
-
-			cells.add(cell);
-			j++;
-		}
-
-		System.out.println(test_i++); //4
-
-		Graph graph=new Graph();
-
-		//add inputs to graph vertices
-		for(Port p: ports){
-			if(p.direction.equals("input")){
-				In_output in=new In_output(p.bits.size(), VertexType.INPUT, p.name);
-				inputs.add(in);
-				graph.addVertex(in);
-			}
-			else{
-				outputs.add(new In_output(p.bits.size(), VertexType.OUTPUT, p.name));
-			}
-
-
-		}
-
-		System.out.println(test_i++); //5
-
-
-		//add all cells
-		for(Cell c:cells){
-
-			Function v = null;
-
-			FunctionType type = resolveType((c.type));
-			if (type == FunctionType.MUX){
-				Connection c_sel = c.getConn("S");
-
-				if (c_sel == null) {
-					throw new MHDLException("MUX MUST HAVE S INPUT");
-				}
-
-				v = new MuxVertex(c.id, type, c.inputs.size());
-			} else {
-				v=new Function(c.id, resolveType(c.type), c.inputs.size());
-			}
-
-			gates.add(v);
-			graph.addVertex(v);
-		}
-
-		System.out.println(test_i++); //6
-
-
-		for(In_output v:outputs){
-			graph.addVertex(v);
-		}
-
-		System.out.println(test_i++); //7
-
-
-		//resolve connections
-		for(Port port:ports){
-
-			for(Port toCom:ports){
-				if(!port.equals(toCom)){
-					int conn_count=areConnected(port.bits, toCom.bits);
-					if(port.direction.equals("input")&&toCom.direction.equals("output")&&conn_count>0){
-						for(int h=0; h<conn_count;h++)
-							graph.addEdge(getVertex(graph, port), getVertex(graph, toCom));
-					}else if(port.direction.equals("output")&&toCom.direction.equals("input")&&conn_count>0){
-						for(int h=0; h<conn_count;h++)
-							graph.addEdge(getVertex(graph, toCom), getVertex(graph, port));
-
-					}
-				}
-
-			}
-
-		}
-
-		System.out.println(test_i++); //8
-
-
-		//add cells  edges
-		for(Cell cell:cells){
-
-			for(Port port:ports){
-
-				int c1=areConnected(port.bits, cell.inputs);
-				if(port.direction.equals("input")&& c1>0){
-					for(int h=0; h<c1;h++){
-
-						graph.addEdge(getVertex(graph, port), getVertex(graph, cell));
-
-					}
-
-				}
-
-				int c2=areConnected(port.bits, cell.outputs);
-
-				if(port.direction.equals("output")&&c2>0){
-
-					for(int h=0; h<c2;h++){
-						graph.addEdge(getVertex(graph, cell), getVertex(graph, port));
-
-					}
-				}
-
-			}
-
-			for(Cell c:cells){
-
-				if(!c.equals(cell)){
-					if(areConnected(cell.outputs, c.inputs)>0)
-						graph.addEdge(getVertex(graph, cell), getVertex(graph, c));
-				}
-
-			}
-
-		}
-
-
-		System.out.println(test_i++); //9
-
-		optimizeGraph(graph);
-		System.out.println(test_i++); //10
-
-		return graph;
-	}
-
-//	public static Graph buildxGraph(String path){
-//
-//		File file=new File(path);
-//		//Three string builder for the three json blocks: cells, ports, netnames
-//		StringBuilder sb1=new StringBuilder();
-//		StringBuilder sb2=new StringBuilder();
-//		StringBuilder sb3=new StringBuilder();
-//
-//		FileReader reader;
-//		BufferedReader b_r;
-//
-//		String portsBlock="";
-//		String cellsBlock="";
-//		String netnamesBlock="";
-//
-//		String pattern = "[:{\"\\s]";
-//
-//		try {
-//			reader = new FileReader(file);
-//			b_r=new BufferedReader(reader);
-//
-//			 //skip first four lines
-//			b_r.readLine();
-//			b_r.readLine();
-//			b_r.readLine();
-//			b_r.readLine();
-//
-//			int port_braces=1;
-//			String line=b_r.readLine();
-//
-//			sb1.append("{");
-//
-//			while(port_braces!=0){
-//				sb1.append(line);
-//				line=b_r.readLine();
-//
-//				if(line.contains("{")){
-//					ports_names.add(line.replaceAll(pattern, ""));
-//					port_braces++;
-//					}
-//				else if (line.contains("}")){port_braces--;}
-//			}
-//			sb1.append("}");
-//			sb1.append("}");
-//			portsBlock=sb1.toString();
-//
-//			//read gates block in the json file
-//			int cells_braces=1;
-//			line=b_r.readLine();
-//			sb2.append("{");
-//
-//			while(cells_braces!= 0){
-//
-//				sb2.append(line);
-//				line=b_r.readLine();
-//
-//				if(line.contains("{")){
-//					cells_braces++;
-//					if(cells_braces==2){
-//						cells_names.add(line.replace(": {", "").replaceAll("[\"\\s]", ""));
-//						}
-//					}
-//				else if (line.contains("}")){cells_braces--;}
-//
-//
-//
-//			}
-//
-//			sb2.append("}");
-//			sb2.append("}");
-//			cellsBlock=sb2.toString();
-//
-//
-//
-//		}catch (FileNotFoundException e) {
-//			e.printStackTrace();
-//		} catch (IOException f) {
-//			f.printStackTrace();
-//		}
-//
-//		//create jsononjects
-//		Gson gson= new com.google.gson.Gson();
-//		System.out.println(portsBlock);
-//
-//		JsonObject ports_obj=gson.fromJson(portsBlock, JsonElement.class).getAsJsonObject().get("ports").getAsJsonObject();
-//
-//
-//
-//		//read all ports names and create port objects
-//
-//		for(String s: ports_names){
-//			JsonObject js=ports_obj.get(s).getAsJsonObject();
-//			Port port=new Port(s, js.get("direction").getAsString(), js.get("bits").getAsJsonArray());
-//			ports.add(port);
-//
-//
-//		}
-//
-//		JsonObject cells_obj=gson.fromJson(cellsBlock, JsonElement.class).getAsJsonObject().get("cells").getAsJsonObject();
-//
-//
-//		int j=1;	//count to assign ids to gates
-//
-//		for(String c: cells_names){
-//
-//			JsonObject js_c=cells_obj.get(c).getAsJsonObject();
-//			JsonObject param_obj=js_c.get("parameters").getAsJsonObject();
-//			JsonObject conn_obj=js_c.get("connections").getAsJsonObject();
-//			JsonObject dir_obj=js_c.get("port_directions").getAsJsonObject();
-//
-//
-//			String[] param=param_obj.toString().replaceAll("[{]", "").split(",");
-//			String[] port_dir=conn_obj.toString().replaceAll("[{]", "").split(",");
-//			String[] conn=dir_obj.toString().replaceAll("[{]", "").split(",");
-//			ArrayList<Connection> conn_list=new ArrayList<>();
-//
-//			for(int k=0; k<port_dir.length;k++){
-//
-//				String holder=port_dir[k].split(":")[0].replaceAll("[\"]", "");
-//				String dir=dir_obj.get(holder).getAsString();
-//				JsonArray n=conn_obj.get(holder).getAsJsonArray();
-//
-//				conn_list.add(new Connection(dir, n));
-//
-//
-//
-//			}
-//
-//
-//
-//			Cell cell=new Cell(j,js_c.get("type").getAsString(),conn_list );
-//
-//			cells.add(cell);
-//			j++;
-//		}
-//
-//		Graph graph=new Graph();
-//
-//		//add inputs to graph vertices
-//		for(Port p: ports){
-//			if(p.direction.equals("input")){
-//				In_output in=new In_output(p.bits.size(), VertexType.INPUT, p.name);
-//				inputs.add(in);
-//				graph.addVertex(in);
-//			}
-//			else{
-//				outputs.add(new In_output(p.bits.size(), VertexType.OUTPUT, p.name));
-//			}
-//
-//
-//		}
-//		//add all cells
-//		for(Cell c:cells){
-//
-//			Function v=new Function(c.id, VertexType.FUNCTION, resolveType(c.type), c.inputs.size());
-//			gates.add(v);
-//			graph.addVertex(v);
-//		}
-//
-//
-//		for(In_output v:outputs){
-//			graph.addVertex(v);
-//		}
-//
-//
-//		//resolve connections
-//		for(Port port:ports){
-//
-//			for(Port toCom:ports){
-//				if(!port.equals(toCom)){
-//					int conn_count=areConnected(port.bits, toCom.bits);
-//					if(port.direction.equals("input")&&toCom.direction.equals("output")&&conn_count>0){
-//						for(int h=0; h<conn_count;h++)
-//							graph.addEdge(getVertex(graph, port), getVertex(graph, toCom));
-//					}else if(port.direction.equals("output")&&toCom.direction.equals("input")&&conn_count>0){
-//						for(int h=0; h<conn_count;h++)
-//							graph.addEdge(getVertex(graph, toCom), getVertex(graph, port));
-//
-//					}
-//				}
-//
-//			}
-//
-//		}
-//
-//		//add cells  edges
-//		for(Cell cell:cells){
-//			for(Port port:ports){
-//				int c1=areConnected(port.bits, cell.inputs);
-//				if(port.direction.equals("input")&& c1>0){
-//					for(int h=0; h<c1;h++)
-//
-//						graph.addEdge(getVertex(graph, port), getVertex(graph, cell));
-//				}
-//
-//				int c2=areConnected(port.bits, cell.outputs);
-//
-//				if(port.direction.equals("output")&&c2>0){
-//
-//					for(int h=0; h<c2;h++)
-//						graph.addEdge(getVertex(graph, cell), getVertex(graph, port));
-//				}
-//
-//			}
-//
-//			for(Cell c:cells){
-//
-//				if(!c.equals(cell)){
-//					if(areConnected(cell.outputs, c.inputs)>0)
-//						graph.addEdge(getVertex(graph, cell), getVertex(graph, c));
-//				}
-//
-//			}
-//
-//		}
-//
-//		optimizeGraph(graph);
-//		return graph;
-//	}
-//
+	/**
+	 * TODO: CURRENTLY UNUSED!
+	 * supposed to remove redundant gates
+	 * We should probably use this if needed to reduce number of gates
+	 * OR add a param that tells you whether or not to optimize, for learning purposes????
+	 * 
+	 * synthesis doesn't simplify (a&b) | (a&c) into a & (b|c)
+	 */
 	private static void optimizeGraph(Graph graph){
 		//iterate through all the nodes of the graph
 		//if or or and gate check outputs
@@ -641,12 +231,9 @@ public class GraphBuilder {
 							graph.mergeVertices(f, s);
 							verToRemove.add(f);
 						}
-
 					}
-					
-				}	
-			}		
-			
+				}
+			}
 		}
 		
 		for(Vertex t:verToRemove){
@@ -660,7 +247,6 @@ public class GraphBuilder {
 		for(Vertex x:v.getNext()){
 			if(x.getType()!=VertexType.FUNCTION){
 				return false;
-				
 			}
 			Function f=(Function)x;
 			if(f.getFunc_Type()!=v.getFunc_Type()){
@@ -669,25 +255,23 @@ public class GraphBuilder {
 		}
 		
 		return true;
-		
 	}
 	
 	
-	//getting vertices
-	
+	/**
+	 * Finds vertex in graph corresponding to port/cell by matching IDs
+	 */
 	private static Vertex getVertex(Graph g, Port p){
 	
 		for(Vertex v:g.getVertices()){
-			
 			if(v.getID().equals(p.name)){
 				return v;
 			}
-			
 		}
+
 		return null;
-		
 	}
-	
+
 	private static Vertex getVertex(Graph g, Cell p){
 		
 		for(Vertex v:g.getVertices()){
@@ -695,12 +279,12 @@ public class GraphBuilder {
 			if(v.getID().equals(String.valueOf(p.id))){
 				return v;
 			}
-			
 		}
+
 		return null;
-		
 	}
 	
+
 	//checks if signals, gates are connected
 	private static int areConnected(ArrayList<Integer> bits, ArrayList<Integer> inputs2){
 		
@@ -711,211 +295,118 @@ public class GraphBuilder {
 				if(x==y){
 					count++;
 				}
-					
 			}
-			
 		}
+
 		return count;
-		
-	
 	}
-	
 
 	
-	
+	/**
+	 * Counts number of inputs in JSON object by analyzing connections field
+	 */
 	private static int num_of_inputs(JsonObject j_o){
 		int num=0;
 		char[] connection=j_o.get("connections").toString().toCharArray();
 		for(char c: connection){
 			if(c==':') num++;
 		}
+
 		return num-1;
 	}
-	
-	
-	
-	
+
+
+	/**
+	 * Maps string representations of gate types to the FunctionType enum
+	 */
 	private static FunctionType resolveType(String type){
+		//TODO: make sure all strings get included
 		
-		//make sure that all string included
-		
-		if(type.contains("and")||type.contains("AND")){
+		if(type.contains("AND")||type.contains("and")){
 			return FunctionType.AND;
 			
-		}else if(type.contains("MUX")||type.contains("mux")){
+		} else if(type.contains("MUX")||type.contains("mux")){
 			return FunctionType.MUX;
-		}else if(type.contains("XOR")||type.contains("xor")){
+
+		} else if(type.contains("XOR")||type.contains("xor")){
 			return FunctionType.XOR;
 
-		}else if(type.contains("or")||type.contains("OR")){
+		} else if(type.contains("OR")||type.contains("or")){
 			return FunctionType.OR;
 			
-		}else if(type.contains("dlatch_p")||type.contains("DLATCH_P")) {
+		} else if(type.contains("DLATCH_P")||type.contains("dlatch_p")) {
 			return FunctionType.D_LATCH;
 
-		}else if(type.contains("not")||type.contains("NOT")){
+		} else if(type.contains("NOT")||type.contains("not")){
 				return FunctionType.INV;
-
-		}else{
+				
+		} else{
 			throw new MHDLException("Unknown Cell:" + type);
 		}
-		
-		
-		
 	}
-
 }
 
 
-	class Port{
-		String name;
-		String direction;
-		ArrayList<Integer> bits=new ArrayList<Integer>();
+class Port{
+	String name;
+	String direction;
+	ArrayList<Integer> bits=new ArrayList<Integer>();
 
-		public Port(String n, String d, ArrayList<Integer> b){
-			name=n;
-			direction=d;
-			bits=b;
-		}
-
+	public Port(String n, String d, ArrayList<Integer> b){
+		name=n;
+		direction=d;
+		bits=b;
 	}
+}
 
-	class Cell{
-		int id;
-		String type;
-		ArrayList<Connection> connections=new ArrayList<Connection>();
+class Cell{
+	int id;
+	String type;
+	ArrayList<Connection> connections=new ArrayList<Connection>();
 
-		ArrayList<Integer> inputs=new ArrayList<Integer>();
-		ArrayList<Integer> outputs=new ArrayList<Integer>();
+	ArrayList<Integer> inputs=new ArrayList<Integer>();
+	ArrayList<Integer> outputs=new ArrayList<Integer>();
 
-		public Cell(int i, String t, ArrayList<Connection> cns){
-			id=i;
-			type=t;
-			connections=cns;
+	public Cell(int i, String t, ArrayList<Connection> cns){
+		id=i;
+		type=t;
+		connections=cns;
 
 
-			for(Connection c:connections){
-				if(c.direction.equals("input")){
-					for(int j=0; j<c.IDs.length; j++){
-						inputs.add(c.IDs[j]);
-					}
+		for(Connection c:connections){
+			if(c.direction.equals("input")){
+				for(int j=0; j<c.IDs.length; j++){
+					inputs.add(c.IDs[j]);
 				}
-				else{
-					for(int j=0; j<c.IDs.length; j++){
-						outputs.add(c.IDs[j]);
-					}
+			}
+			else{
+				for(int j=0; j<c.IDs.length; j++){
+					outputs.add(c.IDs[j]);
 				}
-
 			}
-
-
 		}
-
-		public Connection getConn(String name){
-			for (Connection c : this.connections){
-				if (c.name.equals(name)) return c;
-			}
-			return null;
-		}
-
-
 	}
 
-	class Connection{
-		String name;
-		String direction;
-		int IDs[];
-
-		public Connection(String d, ArrayList<Integer> arr, String name){
-			this.name = name;
-			direction=d;
-			IDs= new int[arr.size()];
-			for(int j=0; j<arr.size(); j++){
-				IDs[j]=arr.get(j);
-
-			}
-
-
+	public Connection getConn(String name){
+		for (Connection c : this.connections){
+			if (c.name.equals(name)) return c;
 		}
 
+		return null;
 	}
+}
 
-//
-//class Port{
-//	String name;
-//	String direction;
-//	ArrayList<Integer> bits=new ArrayList<>();
-//
-//	public Port(String n, String d, JsonArray b){
-//		name=n;
-//		direction=d;
-//
-//
-//		for(int i=0; i<b.size(); i++){
-//			bits.add(b.get(i).getAsInt());
-//		}
-//
-//	}
-//
-//}
-//
-//class Cell{
-//	int id;
-//	String type;
-//	ArrayList<Connection> connections=new ArrayList<>();
-//
-//	ArrayList<Integer> inputs=new ArrayList<Integer>();
-//	ArrayList<Integer> outputs=new ArrayList<>();
-//
-//	public Cell(int i, String t, ArrayList<Connection> cns){
-//		id=i;
-//		type=t;
-//		connections=cns;
-//
-//
-//		for(Connection c:connections){
-//			if(c.direction.equals("input")){
-//				for(int j=0; j<c.IDs.length; j++){
-//					inputs.add(c.IDs[j]);
-//				}
-//			}
-//			else{
-//				for(int j=0; j<c.IDs.length; j++){
-//					outputs.add(c.IDs[j]);
-//				}
-//			}
-//
-//		}
-//
-//
-//	}
-//
-//
-//}
-//
-//class Connection{
-//
-//	String direction;
-//	int IDs[];
-//
-//	public Connection(String d, JsonArray arr){
-//		direction=d;
-//		IDs= new int[arr.size()];
-//		for(int j=0; j<arr.size(); j++){
-//			IDs[j]=arr.get(j).getAsInt();
-//
-//		}
-//
-//
-//	}
-//
-//}
-//
+class Connection{
+	String name;
+	String direction;
+	int IDs[];
 
-
-
-
-
-
-
-
+	public Connection(String d, ArrayList<Integer> arr, String name){
+		this.name = name;
+		direction=d;
+		IDs= new int[arr.size()];
+		for(int j=0; j<arr.size(); j++){
+			IDs[j]=arr.get(j);
+		}
+	}
+}

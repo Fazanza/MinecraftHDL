@@ -9,10 +9,12 @@ import minecrafthdl.synthesis.routing.Router;
 import minecrafthdl.synthesis.routing.pins.GatePins;
 import minecrafthdl.synthesis.routing.pins.PinsArray;
 import minecrafthdl.testing.TestLogicGates;
-import net.minecraft.init.Blocks;
-import net.minecraft.util.EnumFacing;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.world.World;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
+import net.minecraft.core.Direction;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.client.multiplayer.ClientLevel;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -238,8 +240,8 @@ public class IntermediateCircuit {
 
                 if (g.getSizeZ() - 1 < layers_size_z[i]) {
                     for (int z = g.getSizeZ(); z < layers_size_z[i]; z++){
-                        if (z == layers_size_z[i] - 1) circuit.setBlock(x_offset, 0, z_offset + z, Blocks.UNPOWERED_REPEATER.getDefaultState().withProperty(Utils.getPropertyByName(Blocks.UNPOWERED_REPEATER, "facing"), EnumFacing.NORTH));
-                        else circuit.setBlock(x_offset, 0, z_offset + z, Blocks.REDSTONE_WIRE.getDefaultState());
+                        if (z == layers_size_z[i] - 1) circuit.setBlock(x_offset, 0, z_offset + z, Blocks.REPEATER.defaultBlockState().setValue(BlockStateProperties.FACING, Direction.NORTH));
+                        else circuit.setBlock(x_offset, 0, z_offset + z, Blocks.REDSTONE_WIRE.defaultBlockState());
                     }
                 }
 
@@ -301,7 +303,7 @@ public class IntermediateCircuit {
     }
 
 
-    public void verify(World worldIn, BlockPos pos) {
+    public void verify(ClientLevel worldIn, BlockPos pos) {
 
     }
 }

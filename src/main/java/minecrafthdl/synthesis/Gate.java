@@ -1,9 +1,9 @@
 package minecrafthdl.synthesis;
 
-import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.core.Vec3i;
 
-import java.util.HashMap;
+// import java.util.HashMap;
 
 /**
  * Created by Francis O'Brien - 3/3/2017 - 9:47 AM

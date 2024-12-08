@@ -1,52 +1,55 @@
 package minecrafthdl;
 
-import net.minecraft.init.Blocks;
-import net.minecraft.init.Items;
-import net.minecraft.item.ItemStack;
+// import net.minecraft.world.item.Items; // Updated import
+import net.minecraft.world.item.ItemStack; // Updated import
+import net.minecraftforge.fml.common.Mod; // Updated import
+import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.Mod.EventHandler;
-import net.minecraftforge.fml.common.SidedProxy;
-import net.minecraftforge.fml.common.event.FMLInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-import net.minecraftforge.fml.common.registry.GameRegistry;
+import net.minecraftforge.eventbus.api.IEventBus; // New import for event bus
+import net.minecraftforge.eventbus.api.SubscribeEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 
-@Mod(modid = MinecraftHDL.MODID, name = MinecraftHDL.MODNAME, version = MinecraftHDL.VERSION)
-public class MinecraftHDL
-{
+@Mod(MinecraftHDL.MODID)
+public class MinecraftHDL {
     public static final String MODID = "minecrafthdl";
     public static final String MODNAME = "Minecraft HDL";
     public static final String VERSION = "1.0";
 
-    @SidedProxy(clientSide="minecrafthdl.ClientProxy", serverSide="minecrafthdl.ServerProxy")
-    public static CommonProxy proxy;
-
-    @Mod.Instance
-    public static MinecraftHDL instance = new MinecraftHDL();
-
-    @EventHandler
-    public void preInit(FMLPreInitializationEvent e) {
-        proxy.preInit(e);
-    }
-
-    @EventHandler
-    public void init(FMLInitializationEvent e)
-    {
-        proxy.init(e);
-        // some example code
+    // Removed SidedProxy
+    // Use event bus to register the commonSetup and clientSetup methods for modloading
+    public MinecraftHDL() {
+        IEventBus modEventBus = MinecraftForge.EVENT_BUS;
+        
+        // Register common setup method for modloading
+        modEventBus.addListener(this::commonSetup);
+        
+        // Register the client setup method for modloading
+        modEventBus.addListener(this::clientSetup);
+        
+        // Register the mod to the event bus so that the mod can handle events
         MinecraftForge.EVENT_BUS.register(this);
-
     }
 
-    @EventHandler
-    public void postInit(FMLPostInitializationEvent e) {
-        proxy.postInit(e);
+    // This runs during commonSetup
+    private void commonSetup(final FMLCommonSetupEvent event) {
+        System.out.println("Common setup for MinecraftHDL");
     }
 
-//    @SubscribeEvent
-//    public void onPlayerTick(TickEvent.PlayerTickEvent tick)
-//    {
-//        FMLLog.getLogger().log(Level.INFO, "Player Tick");
-//    }
+    // This runs during client setup (client-side only)
+    private void clientSetup(final FMLClientSetupEvent event) {
+        System.out.println("Client setup for MinecraftHDL");
+    }
+
+    // Example event handler for mod setup (equivalent of preInit in old Forge)
+    @SubscribeEvent
+    public void onModSetup(FMLCommonSetupEvent event) {
+        System.out.println("This is the mod setup");
+    }
+
+    // Example event handler for post-initialization (equivalent of postInit)
+    @SubscribeEvent
+    public void onPostSetup(FMLClientSetupEvent event) {
+        System.out.println("This is the client setup");
+    }
 }
